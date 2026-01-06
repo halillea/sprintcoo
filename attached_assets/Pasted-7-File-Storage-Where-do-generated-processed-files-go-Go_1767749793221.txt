@@ -1,0 +1,34 @@
+7. File Storage
+Where do generated/processed files go? 
+Google Drive 
+using state of the art naming for folders and files
+
+8. Email Service for Notifications
+Do you have a preferred email service? (SendGrid, Resend, or should I suggest one?)
+suggest the best free and paid options
+
+9. Google Sheets Integration
+For progress tracking, 
+Google Sheets integration is required for MVP
+this is one of the time saver, the user/ceo has google drive connected and synchronized to his laptop
+he will see anything that was added to his folder
+
+10. Agent Definition
+When the Digital COO "creates an agent" - what does that look like technically? Is it:
+this depend on the task difficulty
+if the 'digital coo' can create automated agent, he will generate it, and store it inside the app and also store a copy in the google drive folder
+if it is a prompt that need to be executed, and need some back and forth beofre geting the results. A prompt will be added to the folder. How to use the prompt will appear on the dashboard of the user/ceo
+if the tasks need a script or code automation to be executed by a human, then the code/script is provided inside the google drive
+
+11. The Example Projects
+Are saasbizz.com, saasitron.com, hostipedia.com are real projects that will go live within the next weeks
+There is already some draft content posted on each one.
+
+12. Web Scraping
+For tasks like "scrape startup descriptions" - should the Digital COO actually perform web scraping, or generate instructions/scripts for it?
+this is a task that the 'digital coo' can handle, but it can trigger some errors, as scraping can be difficult with some websites.
+If the 'digital coo' fail to fetch the content. he will just alert the user/ceo
+there are some api/services that we may integrate to make it seamless. we just dont do that with the MVP
+
+Before generating any code, ask me all the questions needed to be sure at 100% of what is the exact scope of what we are building.
+Only generate code after validation.

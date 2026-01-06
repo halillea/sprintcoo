@@ -1,0 +1,19 @@
+Project-A:  saasbizz.com 
+ Generate the description of each startup listed in the directory.
+website scraping from the main domain startup is the source of truth.
+the description should not be longer than 500 words. the logos will be the only image in this article.
+generate the entries list 
+
+Project-B:  saasitron.com 
+ Generate a full webpage for each boilerplate listed on the homepage.
+The description text is not limited, and a web search should find all the information needed.
+generate an .html file for each entry
+the page should be optimized for seo
+Put all the files into a folder named boilerplates
+
+Project-B:  hostipedia.com 
+ Generate top 10 hosting reviews page for each hosting listed in the homepage
+  content is a mix of all the top hosting reviews , they all promote the top hosting companies
+extract content for each hosting from 3 different sources,
+generate an article from the 3 sources to make it unique
+    Update homepage with new links pointing to the reviews page
