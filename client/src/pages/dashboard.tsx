@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,19 @@ import {
   FolderKanban, 
   Bot,
   ArrowRight,
-  Activity
+  Activity,
+  FolderOpen,
+  Loader2
 } from "lucide-react";
 import { Link } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { DashboardStats, Task, ActivityLog } from "@shared/schema";
 
 export default function Dashboard() {
+  const { toast } = useToast();
+  const [importResult, setImportResult] = useState<any>(null);
+
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
@@ -27,6 +35,33 @@ export default function Dashboard() {
 
   const { data: recentActivity, isLoading: activityLoading } = useQuery<ActivityLog[]>({
     queryKey: ["/api/dashboard/activity"],
+  });
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/drive/import-tasks", {
+        folderName: "4COO",
+        fileName: "tasks-urgent-06jan.txt"
+      });
+    },
+    onSuccess: async (response: any) => {
+      const data = await response.json();
+      setImportResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      toast({
+        title: "Tasks Imported",
+        description: `Imported ${data.summary.total} tasks: ${data.summary.autoExecute} auto-execute, ${data.summary.delegated} delegated, ${data.summary.humanRequired} human required`
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import tasks from Google Drive",
+        variant: "destructive"
+      });
+    },
   });
 
   const statCards = [
@@ -49,18 +84,49 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold" data-testid="text-page-title">Dashboard</h1>
           <p className="text-muted-foreground">Your command center</p>
         </div>
-        <Button asChild data-testid="button-view-all-tasks">
-          <Link href="/tasks">
-            View All Tasks
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => importMutation.mutate()}
+            disabled={importMutation.isPending}
+            data-testid="button-import-from-drive"
+          >
+            {importMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FolderOpen className="mr-2 h-4 w-4" />
+            )}
+            Import from 4COO
+          </Button>
+          <Button asChild data-testid="button-view-all-tasks">
+            <Link href="/tasks">
+              View All Tasks
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
       </div>
+
+      {importResult && (
+        <Card className="border-green-500/50 bg-green-500/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+              <div>
+                <p className="font-medium">Tasks Imported Successfully</p>
+                <p className="text-sm text-muted-foreground">
+                  Imported {importResult.summary.total} tasks: {importResult.summary.autoExecute} auto-execute, {importResult.summary.delegated} delegated, {importResult.summary.humanRequired} human required
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {statCards.map((stat) => (

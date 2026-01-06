@@ -6,6 +6,7 @@ import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
+import { findFolder, findFileInFolder, getFileContent, listFilesInFolder } from "./google-drive";
 
 // Initialize AI clients
 const anthropic = new Anthropic({
@@ -728,6 +729,177 @@ Return only the post content, no explanations.`
     } catch (error) {
       console.error("Error removing team member:", error);
       res.status(500).json({ message: "Failed to remove team member" });
+    }
+  });
+
+  // ============================================
+  // GOOGLE DRIVE ENDPOINTS
+  // ============================================
+  app.get("/api/drive/folders/:name", isAuthenticated, async (req, res) => {
+    try {
+      const folderName = req.params.name;
+      const folderId = await findFolder(folderName);
+      if (!folderId) {
+        return res.status(404).json({ message: `Folder '${folderName}' not found` });
+      }
+      const files = await listFilesInFolder(folderId);
+      res.json({ folderId, files });
+    } catch (error) {
+      console.error("Error listing folder:", error);
+      res.status(500).json({ message: "Failed to access Google Drive" });
+    }
+  });
+
+  app.post("/api/drive/import-tasks", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { folderName, fileName } = req.body;
+
+      // Find folder
+      const folderId = await findFolder(folderName);
+      if (!folderId) {
+        return res.status(404).json({ message: `Folder '${folderName}' not found` });
+      }
+
+      // Find file
+      const file = await findFileInFolder(folderId, fileName);
+      if (!file) {
+        return res.status(404).json({ message: `File '${fileName}' not found in folder` });
+      }
+
+      // Get file content
+      const content = await getFileContent(file.id);
+      console.log("File content:", content);
+
+      // Save file to database
+      const savedFile = await storage.createFile({
+        userId,
+        name: fileName,
+        source: "google_drive",
+        googleDriveId: file.id,
+        content,
+        type: "input",
+      });
+
+      // Use Claude to parse tasks from the content
+      const parseResponse = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{
+          role: "user",
+          content: `Parse the following task file and extract individual tasks. For each task, identify:
+1. The task title/name
+2. A description if available
+3. Priority (urgent/high/medium/low) based on context
+4. Related project name if mentioned
+
+Task file content:
+${content}
+
+Respond with JSON only:
+{
+  "tasks": [
+    {
+      "title": "task title",
+      "description": "task description",
+      "priority": "high|medium|low|urgent",
+      "projectName": "project name if mentioned or null"
+    }
+  ]
+}`
+        }]
+      });
+
+      const responseText = parseResponse.content[0].type === "text" ? parseResponse.content[0].text : "";
+      const parsed = JSON.parse(responseText);
+
+      // Create tasks from parsed content
+      const createdTasks = [];
+      for (const taskData of parsed.tasks) {
+        // Try to find matching project
+        let projectId: number | null = null;
+        if (taskData.projectName) {
+          const projects = await storage.getProjects(userId);
+          const matchingProject = projects.find(p => 
+            p.name.toLowerCase().includes(taskData.projectName.toLowerCase())
+          );
+          if (matchingProject) projectId = matchingProject.id;
+        }
+
+        const task = await storage.createTask({
+          userId,
+          projectId,
+          title: taskData.title,
+          description: taskData.description || null,
+          priority: taskData.priority || "medium",
+          category: "pending",
+          status: "pending",
+          sourceFile: fileName,
+        });
+
+        // Triage task with Claude
+        try {
+          const triageResponse = await anthropic.messages.create({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1024,
+            messages: [{
+              role: "user",
+              content: `You are a Digital COO. Analyze this task and categorize it:
+
+Task: ${task.title}
+Description: ${task.description || "No description"}
+
+Categories:
+1. auto_execute - Simple tasks that can be automated (content generation, file processing)
+2. delegate_agent - Complex tasks needing specialized agents
+3. human_required - Tasks needing human judgment/decision
+
+Respond with JSON only:
+{"category": "auto_execute" | "delegate_agent" | "human_required", "reasoning": "brief explanation"}`
+            }]
+          });
+
+          const triageText = triageResponse.content[0].type === "text" ? triageResponse.content[0].text : "";
+          const triageResult = JSON.parse(triageText);
+          await storage.updateTask(task.id, { category: triageResult.category });
+          task.category = triageResult.category;
+        } catch (triageError) {
+          console.error("Error triaging task:", triageError);
+        }
+
+        createdTasks.push(task);
+      }
+
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "file_processed",
+        description: `Imported ${createdTasks.length} tasks from ${fileName}`,
+        entityType: "file",
+        entityId: savedFile.id,
+      });
+
+      // Create notification
+      await storage.createNotification({
+        userId,
+        type: "info",
+        title: "Tasks Imported",
+        message: `Successfully imported ${createdTasks.length} tasks from ${fileName}`,
+      });
+
+      res.json({
+        file: savedFile,
+        tasks: createdTasks,
+        summary: {
+          total: createdTasks.length,
+          autoExecute: createdTasks.filter(t => t.category === "auto_execute").length,
+          delegated: createdTasks.filter(t => t.category === "delegate_agent").length,
+          humanRequired: createdTasks.filter(t => t.category === "human_required").length,
+        }
+      });
+    } catch (error) {
+      console.error("Error importing tasks from Drive:", error);
+      res.status(500).json({ message: "Failed to import tasks from Google Drive" });
     }
   });
 
