@@ -39,17 +39,15 @@ export default function Landing() {
             SprintCOO is an intelligent orchestration layer that triages your tasks,
             executes what it can, delegates to agents, and only returns to you what requires human judgment.
           </p>
-          <div className="flex gap-4 justify-center flex-wrap">
+          <div className="flex gap-4 justify-center">
             <Button size="lg" asChild data-testid="button-get-started">
               <a href="/api/login">
                 Get Started Free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </a>
             </Button>
-            <Button size="lg" variant="outline" asChild data-testid="button-demo-login">
-              <a href="/api/demo/login">
-                Try Demo Mode
-              </a>
+            <Button size="lg" variant="outline" data-testid="button-learn-more">
+              Learn More
             </Button>
           </div>
         </section>

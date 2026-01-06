@@ -733,50 +733,6 @@ Return only the post content, no explanations.`
   });
 
   // ============================================
-  // DEMO MODE - For testing without full OAuth
-  // ============================================
-  const DEMO_USER_ID = "demo-user-testing";
-  
-  // Demo login - creates a fake session for testing
-  app.get("/api/demo/login", async (req, res) => {
-    // Create a demo user object that mimics the real auth structure
-    const demoUser = {
-      claims: { sub: DEMO_USER_ID },
-      expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours
-    };
-    
-    // Log in the demo user
-    req.login(demoUser, (err) => {
-      if (err) {
-        console.error("Demo login error:", err);
-        return res.status(500).json({ message: "Demo login failed" });
-      }
-      res.redirect("/");
-    });
-  });
-  
-  // Seed demo user data
-  app.post("/api/demo/seed", async (req, res) => {
-    try {
-      // Create a demo user in the database if it doesn't exist
-      const existingProjects = await storage.getProjects(DEMO_USER_ID);
-      if (existingProjects.length === 0) {
-        // The seed function uses demo-user, let's update it
-        await storage.createProject({
-          userId: DEMO_USER_ID,
-          name: "Demo Project",
-          description: "A demo project for testing",
-          status: "active",
-        });
-      }
-      res.json({ message: "Demo data seeded" });
-    } catch (error) {
-      console.error("Error seeding demo data:", error);
-      res.status(500).json({ message: "Failed to seed demo data" });
-    }
-  });
-
-  // ============================================
   // GOOGLE DRIVE ENDPOINTS
   // ============================================
   app.get("/api/drive/folders/:name", isAuthenticated, async (req, res) => {
