@@ -1,226 +1,257 @@
-# SprintCOO Deployment Guide
+# SprintCOO - Self-Hosted Deployment Guide
 
-SprintCOO is a Digital Chief Operating Officer SaaS application that triages tasks, executes automations, and delegates work to AI agents.
+SprintCOO is a Digital Chief Operating Officer SaaS application. This guide covers deploying it on any platform without Replit dependencies.
 
-## Prerequisites
-
-### Required Services
-
-| Service | Purpose | How to Get |
-|---------|---------|------------|
-| PostgreSQL Database | Store users, tasks, projects, agents, files, sessions | Included with Replit or use local/cloud PostgreSQL |
-| Anthropic API Key | Claude Pro for task triage and parsing | [console.anthropic.com](https://console.anthropic.com) |
-| Google Gemini | Task execution and content generation | Configured via Replit AI Integrations |
-| Google Drive OAuth | File sync and task import | Configured via Replit Connectors |
-
-### Environment Variables
+## Quick Start
 
 ```bash
-# Required
-DATABASE_URL=postgresql://user:password@host:5432/database
-SESSION_SECRET=your-random-secret-string-min-32-chars
-ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+# 1. Clone the project
+git clone <your-repo-url>
+cd sprintcoo
 
-# Auto-configured by Replit AI Integrations (do not set manually on Replit)
-AI_INTEGRATIONS_GEMINI_API_KEY=...
-AI_INTEGRATIONS_GEMINI_BASE_URL=...
-
-# Auto-configured by Replit (do not set manually on Replit)
-REPL_ID=...
-ISSUER_URL=...
-```
-
----
-
-## Deployment Option 1: Replit (Recommended)
-
-### Step 1: Set Up Secrets
-1. Open the "Secrets" tab in your Replit project
-2. Add `ANTHROPIC_API_KEY` with your Claude API key
-3. `SESSION_SECRET` is auto-generated
-
-### Step 2: Configure Integrations
-1. **Gemini AI**: Already configured via Replit AI Integrations
-2. **Google Drive**: Connect via the Connections panel (already done if you set it up)
-
-### Step 3: Push Database Schema
-```bash
-npm run db:push
-```
-
-### Step 4: Publish
-1. Click the "Publish" button in Replit
-2. Your app will be live at `https://your-app.replit.app`
-3. SSL/HTTPS is automatically configured
-
----
-
-## Deployment Option 2: Local Development (Node.js)
-
-### Requirements
-- Node.js 18 or higher
-- PostgreSQL 14 or higher
-- npm or yarn
-
-### Step 1: Install Dependencies
-```bash
+# 2. Install dependencies
 npm install
-```
 
-### Step 2: Set Up PostgreSQL
-Create a new database:
-```sql
-CREATE DATABASE sprintcoo;
-```
+# 3. Configure environment (see below)
+cp .env.example .env
+# Edit .env with your values
 
-### Step 3: Configure Environment
-Create a `.env` file in the project root:
-```bash
-DATABASE_URL=postgresql://username:password@localhost:5432/sprintcoo
-SESSION_SECRET=generate-a-random-32-character-string-here
-ANTHROPIC_API_KEY=sk-ant-api03-your-anthropic-key
-```
-
-### Step 4: Push Database Schema
-```bash
+# 4. Setup database
 npm run db:push
-```
 
-### Step 5: Start Development Server
-```bash
+# 5. Start the app
 npm run dev
 ```
 
-The app will be available at `http://localhost:5000`
-
-### Local Limitations
-- **Google Drive Integration**: Requires setting up your own Google Cloud OAuth credentials
-- **Replit Auth**: Uses Replit's OIDC provider - for local dev, you may need alternative auth
+The app runs at `http://localhost:5000`
 
 ---
 
-## Deployment Option 3: Cloud Providers
+## Environment Variables
 
-### General Steps for Heroku, Railway, Render, etc.
+Create a `.env` file with these variables:
 
-1. **Database**: Use the provider's managed PostgreSQL or connect to an external one
-2. **Environment Variables**: Set all required variables in the provider's dashboard
-3. **Build Command**: `npm run build` (if applicable)
-4. **Start Command**: `npm start` or `npm run dev`
-5. **Port**: The app binds to port 5000 by default
+### Required
 
-### Provider-Specific Notes
-
-**Railway**
 ```bash
-# railway.json
-{
-  "build": { "builder": "NIXPACKS" },
-  "deploy": { "startCommand": "npm run dev" }
-}
+# Database (PostgreSQL)
+DATABASE_URL=postgresql://user:password@localhost:5432/sprintcoo
+
+# Session security (generate a random 32+ character string)
+SESSION_SECRET=your-super-secret-session-key-here
+
+# Claude AI for task triage
+ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+
+# Gemini AI for task execution
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
-**Render**
-- Build Command: `npm install`
-- Start Command: `npm run dev`
-- Add PostgreSQL as a service
+### Optional (Google Drive Integration)
+
+```bash
+# Google OAuth (for Drive import feature)
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:5000/api/auth/google/callback
+```
+
+---
+
+## Getting API Keys
+
+### 1. Anthropic (Claude AI)
+
+1. Go to [console.anthropic.com](https://console.anthropic.com)
+2. Create account or sign in
+3. Navigate to API Keys
+4. Create new key
+5. Copy to `ANTHROPIC_API_KEY`
+
+### 2. Google AI (Gemini)
+
+1. Go to [aistudio.google.com](https://aistudio.google.com)
+2. Click "Get API key"
+3. Create new key or use existing
+4. Copy to `GEMINI_API_KEY`
+
+### 3. Google Drive OAuth (Optional)
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Create a new project (or select existing)
+3. Enable Google Drive API:
+   - APIs & Services → Library → Search "Google Drive API" → Enable
+4. Create OAuth credentials:
+   - APIs & Services → Credentials → Create Credentials → OAuth Client ID
+   - Application type: Web application
+   - Authorized redirect URIs: `http://localhost:5000/api/auth/google/callback`
+5. Copy Client ID and Client Secret to your `.env`
+
+---
+
+## Database Setup
+
+### Local PostgreSQL
+
+```bash
+# Install PostgreSQL (macOS)
+brew install postgresql
+brew services start postgresql
+
+# Create database
+createdb sprintcoo
+
+# Set DATABASE_URL
+DATABASE_URL=postgresql://localhost:5432/sprintcoo
+```
+
+### Cloud PostgreSQL (Recommended for Production)
+
+**Neon (Free tier available)**
+1. Sign up at [neon.tech](https://neon.tech)
+2. Create database
+3. Copy connection string to `DATABASE_URL`
+
+**Supabase**
+1. Sign up at [supabase.com](https://supabase.com)
+2. Create project → Settings → Database → Connection string
+3. Copy to `DATABASE_URL`
+
+**Railway**
+1. Sign up at [railway.app](https://railway.app)
+2. New Project → Add PostgreSQL
+3. Copy connection string
+
+---
+
+## Production Deployment
+
+### Docker
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 5000
+CMD ["npm", "start"]
+```
+
+### Railway / Render / Fly.io
+
+1. Connect your Git repository
+2. Set environment variables in the dashboard
+3. Build command: `npm install && npm run build`
+4. Start command: `npm start`
+
+### VPS (DigitalOcean, AWS EC2, etc.)
+
+```bash
+# On your server
+git clone <repo>
+cd sprintcoo
+npm install
+npm run build
+
+# Use PM2 for process management
+npm install -g pm2
+pm2 start npm --name "sprintcoo" -- start
+pm2 save
+```
+
+---
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   React/Vite    │────▶│   Express API   │────▶│   PostgreSQL    │
+│   Frontend      │     │   Backend       │     │   Database      │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                               │
+                    ┌──────────┼──────────┐
+                    │          │          │
+                    ▼          ▼          ▼
+              ┌─────────┐ ┌─────────┐ ┌─────────┐
+              │ Claude  │ │ Gemini  │ │ Google  │
+              │ (Triage)│ │(Execute)│ │ Drive   │
+              └─────────┘ └─────────┘ └─────────┘
+```
+
+### Core Features
+
+| Feature | Technology | Required |
+|---------|------------|----------|
+| Authentication | Email/password + bcrypt + sessions | Yes |
+| Database | PostgreSQL + Drizzle ORM | Yes |
+| Task Triage | Claude AI (Anthropic) | Yes |
+| Task Execution | Gemini AI (Google) | Yes |
+| File Import | Google Drive API | Optional |
 
 ---
 
 ## Database Schema
 
-The app uses Drizzle ORM with the following tables:
-
 | Table | Purpose |
 |-------|---------|
-| users | User accounts (synced from Replit Auth) |
-| sessions | Active user sessions |
+| users | User accounts with hashed passwords |
+| sessions | Active login sessions |
 | projects | Task groupings/projects |
-| tasks | Individual tasks with triage categories |
-| agents | AI agents (prompt, script, automation types) |
+| tasks | Individual tasks with AI triage categories |
+| agents | AI agents (prompt, script, automation) |
 | files | Uploaded and synced files |
 | social_posts | Generated social media content |
 | notifications | In-app notifications |
 | activity_logs | Activity audit trail |
 | team_members | Multi-user team support |
 
-To reset the database:
-```bash
-npm run db:push
-```
-
----
-
-## API Keys Setup
-
-### Anthropic (Claude)
-1. Go to [console.anthropic.com](https://console.anthropic.com)
-2. Create an account or sign in
-3. Navigate to API Keys
-4. Create a new key
-5. Copy and add as `ANTHROPIC_API_KEY`
-
-### Google Gemini (on Replit)
-- Automatically configured via Replit AI Integrations
-- No manual setup required
-
-### Google Drive (on Replit)
-- Configured via Replit Connectors
-- Grants access to read/write files in your Drive
-
 ---
 
 ## Troubleshooting
 
-### "Invalid authentication request"
-- Clear browser cookies and try again
-- Ensure you're accessing via HTTPS
-- Check that `SESSION_SECRET` is set
+### "Database connection failed"
+- Verify `DATABASE_URL` format: `postgresql://user:pass@host:5432/dbname`
+- Check PostgreSQL is running
+- Ensure network access (cloud DBs may need IP whitelist)
 
-### Database connection errors
-- Verify `DATABASE_URL` format
-- Ensure PostgreSQL is running
-- Check network/firewall settings
+### "ANTHROPIC_API_KEY not set"
+- Add the key to your `.env` file
+- Restart the server after changing `.env`
 
-### Google Drive not connecting
-- Re-authorize via Replit Connectors
-- Check OAuth scopes in Google Cloud Console (if self-hosted)
+### "Google Drive not connected"
+- Ensure `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set
+- Connect your Google account in Settings page
+- Verify redirect URI matches OAuth configuration
 
-### AI features not working
-- Verify `ANTHROPIC_API_KEY` is correct
-- Check API quota/billing on Anthropic dashboard
-- For Gemini issues, check Replit AI Integrations status
+### Login not working
+- Clear browser cookies
+- Check `SESSION_SECRET` is set
+- Verify database has sessions table: `npm run db:push`
 
 ---
 
-## Architecture Overview
+## Development
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Frontend      │────▶│   Express API   │────▶│   PostgreSQL    │
-│   (React/Vite)  │     │   (Node.js)     │     │   Database      │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   AI Services       │
-                    │ • Claude (Triage)   │
-                    │ • Gemini (Execute)  │
-                    └─────────────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   External APIs     │
-                    │ • Google Drive      │
-                    │ • Google Sheets     │
-                    └─────────────────────┘
+```bash
+# Start in development mode (with hot reload)
+npm run dev
+
+# Push schema changes to database
+npm run db:push
+
+# Type checking
+npm run typecheck
 ```
 
 ---
 
-## Support
+## Security Checklist
 
-For issues with:
-- **Replit Platform**: Contact Replit support
-- **Anthropic API**: Check [docs.anthropic.com](https://docs.anthropic.com)
-- **Google APIs**: Check [developers.google.com](https://developers.google.com)
+- [ ] Set strong `SESSION_SECRET` (32+ random characters)
+- [ ] Use HTTPS in production
+- [ ] Set `NODE_ENV=production` in production
+- [ ] Keep API keys secret (never commit to Git)
+- [ ] Enable PostgreSQL SSL in production
+- [ ] Set up database backups

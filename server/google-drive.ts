@@ -1,56 +1,62 @@
-// Google Drive integration using Replit connector
 import { google } from 'googleapis';
 
-let connectionSettings: any;
+let oauth2Client: any = null;
 
-async function getAccessToken() {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return connectionSettings.settings.access_token;
+function getOAuth2Client() {
+  if (!oauth2Client) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+    
+    if (!clientId || !clientSecret) {
+      throw new Error('Google OAuth credentials not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.');
+    }
+    
+    oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  }
+  return oauth2Client;
+}
+
+export function setGoogleTokens(tokens: { access_token: string; refresh_token?: string; expiry_date?: number }) {
+  const client = getOAuth2Client();
+  client.setCredentials(tokens);
+}
+
+export function getGoogleAuthUrl() {
+  const client = getOAuth2Client();
+  return client.generateAuthUrl({
+    access_type: 'offline',
+    scope: [
+      'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/drive.file',
+    ],
+    prompt: 'consent',
+  });
+}
+
+export async function getGoogleTokensFromCode(code: string) {
+  const client = getOAuth2Client();
+  const { tokens } = await client.getToken(code);
+  client.setCredentials(tokens);
+  return tokens;
+}
+
+export async function getGoogleDriveClient() {
+  const client = getOAuth2Client();
+  
+  const credentials = client.credentials;
+  if (!credentials || !credentials.access_token) {
+    throw new Error('Google Drive not connected. Please connect your Google account in Settings.');
   }
   
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-    : null;
-
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+  if (credentials.expiry_date && credentials.expiry_date < Date.now() && credentials.refresh_token) {
+    const { credentials: newCredentials } = await client.refreshAccessToken();
+    client.setCredentials(newCredentials);
   }
-
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-drive',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
-
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
-
-  if (!connectionSettings || !accessToken) {
-    throw new Error('Google Drive not connected');
-  }
-  return accessToken;
+  
+  return google.drive({ version: 'v3', auth: client });
 }
 
-// WARNING: Never cache this client.
-// Access tokens expire, so a new client must be created each time.
-export async function getGoogleDriveClient() {
-  const accessToken = await getAccessToken();
-
-  const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({
-    access_token: accessToken
-  });
-
-  return google.drive({ version: 'v3', auth: oauth2Client });
-}
-
-// Find a folder by name
 export async function findFolder(folderName: string): Promise<string | null> {
   const drive = await getGoogleDriveClient();
   
@@ -62,7 +68,6 @@ export async function findFolder(folderName: string): Promise<string | null> {
   return response.data.files?.[0]?.id || null;
 }
 
-// List files in a folder
 export async function listFilesInFolder(folderId: string) {
   const drive = await getGoogleDriveClient();
   
@@ -75,7 +80,6 @@ export async function listFilesInFolder(folderId: string) {
   return response.data.files || [];
 }
 
-// Get file content
 export async function getFileContent(fileId: string): Promise<string> {
   const drive = await getGoogleDriveClient();
   
@@ -89,7 +93,6 @@ export async function getFileContent(fileId: string): Promise<string> {
   return response.data as string;
 }
 
-// Find and get a specific file by name in a folder
 export async function findFileInFolder(folderId: string, fileName: string): Promise<{ id: string; name: string } | null> {
   const drive = await getGoogleDriveClient();
   
@@ -98,5 +101,22 @@ export async function findFileInFolder(folderId: string, fileName: string): Prom
     fields: 'files(id, name, mimeType)',
   });
 
-  return response.data.files?.[0] || null;
+  const file = response.data.files?.[0];
+  if (file && file.id && file.name) {
+    return { id: file.id, name: file.name };
+  }
+  return null;
+}
+
+export function isGoogleDriveConfigured(): boolean {
+  return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+export function hasGoogleDriveTokens(): boolean {
+  try {
+    const client = getOAuth2Client();
+    return !!(client.credentials && client.credentials.access_token);
+  } catch {
+    return false;
+  }
 }
