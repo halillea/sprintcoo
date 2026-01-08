@@ -11,6 +11,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import Landing from "@/pages/landing";
+import Login from "@/pages/login";
+import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import Tasks from "@/pages/tasks";
 import Projects from "@/pages/projects";
@@ -70,7 +72,13 @@ function AppContent() {
   }
 
   if (!user) {
-    return <Landing />;
+    return (
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route path="/register" component={Register} />
+        <Route component={Landing} />
+      </Switch>
+    );
   }
 
   return <AuthenticatedApp />;

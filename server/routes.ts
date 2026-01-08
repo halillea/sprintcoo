@@ -14,16 +14,12 @@ const anthropic = new Anthropic({
 });
 
 const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 // Helper to get user ID from request
 function getUserId(req: any): string {
-  return req.user?.claims?.sub || "anonymous";
+  return req.user?.id || "anonymous";
 }
 
 export async function registerRoutes(

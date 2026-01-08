@@ -16,7 +16,7 @@ export default function Landing() {
             <span className="text-xl font-semibold">SprintCOO</span>
           </div>
           <Button asChild data-testid="button-login">
-            <a href="/api/login">
+            <a href="/login">
               Sign In
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>
@@ -41,13 +41,13 @@ export default function Landing() {
           </p>
           <div className="flex gap-4 justify-center">
             <Button size="lg" asChild data-testid="button-get-started">
-              <a href="/api/login">
+              <a href="/register">
                 Get Started Free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </a>
             </Button>
-            <Button size="lg" variant="outline" data-testid="button-learn-more">
-              Learn More
+            <Button size="lg" variant="outline" asChild data-testid="button-learn-more">
+              <a href="/login">Sign In</a>
             </Button>
           </div>
         </section>
@@ -94,7 +94,7 @@ export default function Landing() {
                 Join solopreneurs who handle their entire business with SprintCOO
               </p>
               <Button size="lg" asChild data-testid="button-start-free">
-                <a href="/api/login">
+                <a href="/register">
                   Start Free Today
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
